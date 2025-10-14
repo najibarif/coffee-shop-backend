@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { BASE_URL } from '../../constants/api';
+import { BASE_URL } from '../constants/api';
 
 export default function ProductDetail() {
   const params = useLocalSearchParams();

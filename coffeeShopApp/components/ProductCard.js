@@ -5,7 +5,7 @@ export default function ProductCard({ product, onPress }) {
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <Image
-        source={{ uri: product.image }}
+        source={{ uri: `https://coffee-shop-backend-production-afce.up.railway.app/api/assets/${product.image}` }}
         style={styles.image}
         resizeMode="cover"
       />

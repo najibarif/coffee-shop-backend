@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 dotenv.config();
 
 
@@ -12,6 +13,9 @@ import orderRoutes from "./src/routes/orders.js";
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Tambahkan ini untuk serve gambar statis
+app.use('/api/assets', express.static(path.join(process.cwd(), 'src', 'assets')));
 
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);

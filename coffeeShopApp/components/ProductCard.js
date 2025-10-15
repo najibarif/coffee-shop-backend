@@ -1,14 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function ProductCard({ product }) {
   const router = useRouter();
+  const [imgError, setImgError] = useState(false);
 
   const handlePress = () => {
     if (product?.id) {
       router.push(`/products/${product.id}`);
     }
+  };
+
+  const renderImage = () => {
+    if (imgError || !product?.image) {
+      const firstLetter = product?.name ? product.name.charAt(0).toUpperCase() : '?';
+      return (
+        <View style={styles.imagePlaceholder}>
+          <Text style={styles.placeholderText}>{firstLetter}</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <Image 
+        source={{ uri: product.image }}
+        style={styles.productImage}
+        resizeMode="cover"
+        onError={() => setImgError(true)}
+      />
+    );
   };
 
   return (
@@ -17,19 +38,7 @@ export default function ProductCard({ product }) {
       activeOpacity={0.9} 
       onPress={handlePress}
     >
-      {product?.image ? (
-        <Image 
-          source={{ 
-            uri: `https://coffee-shop-backend-production-afce.up.railway.app/api/assets/${product.image}` 
-          }} 
-          style={styles.productImage}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.placeholderText}>Gambar</Text>
-        </View>
-      )}
+      {renderImage()}
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
           {product?.name || 'Nama Produk'}
@@ -69,8 +78,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeholderText: {
-    color: '#a39e99',
-    fontSize: 14,
+    color: '#6f4e37',
+    fontSize: 48,
+    fontWeight: 'bold',
   },
   info: {
     padding: 12,

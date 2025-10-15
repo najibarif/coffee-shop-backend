@@ -39,9 +39,8 @@ export default function Cart() {
       }
 
       clearCart();
-      Alert.alert('Pesanan Berhasil', 'Terima kasih atas pesanannya!', [
-        { text: 'Lihat Pesanan', onPress: () => router.push('/orders') }
-      ]);
+      // Navigate to orders page after successful checkout
+      router.replace('/orders');
 
     } catch (err) {
       console.error('Checkout error:', err);

@@ -6,9 +6,30 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const [products] = await db.promise().query('SELECT * FROM products ORDER BY id ASC');
+    
+    // Log untuk debugging
+    console.log('Products from database:', JSON.stringify(products, null, 2));
+    
+    // Pastikan URL gambar lengkap
+    const productsWithImageUrl = products.map(product => {
+      // Pastikan image selalu memiliki URL lengkap
+      const baseUrl = 'https://coffee-shop-backend-production-afce.up.railway.app';
+      const imagePath = product?.image?.startsWith('http') 
+        ? product.image 
+        : `${baseUrl}/api/assets/${product.image || ''}`;
+      
+      console.log(`Product ID ${product.id} - Image: ${imagePath}`);
+      
+      return {
+        ...product,
+        // Pastikan image selalu string, tidak pernah null/undefined
+        image: imagePath || 'https://via.placeholder.com/150'
+      };
+    });
+
     res.json({
       success: true,
-      data: products
+      data: productsWithImageUrl
     });
   } catch (error) {
     console.error('Error fetching products:', error);

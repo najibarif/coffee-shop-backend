@@ -12,98 +12,68 @@ export default function ProductDetail() {
   const router = useRouter();
   const { addToCart } = useCart();
 
-  const fetchProduct = async () => {
-    if (!id) {
-      console.error('Error: Product ID is missing');
-      setError('ID produk tidak valid');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const url = `${BASE_URL}/products/${id}`;
-      console.log('Fetching from URL:', url);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        throw new Error(`Gagal memuat data produk (${response.status})`);
-      }
-
-      const data = await response.json();
-      console.log('Received data:', data);
-
-      if (!data) {
-        throw new Error('Tidak ada data yang diterima dari server');
-      }
-
-      setProduct(data);
-      setError(null);
-    } catch (err) {
-      console.error('Error in fetchProduct:', {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      });
-      setError(`Gagal memuat data produk: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) {
+        setError('ID produk tidak valid');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await fetch(`${BASE_URL}/products/${id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setProduct(data.data);
+        } else {
+          setError('Produk tidak ditemukan');
+        }
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        setError('Gagal memuat detail produk');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchProduct();
   }, [id]);
 
   const handleAddToCart = () => {
-    if (!product) return;
-
-    try {
+    if (product) {
+      // Add to cart
       addToCart({
-        ...product,
+        id: product.id,
+        name: product.name,
+        price: parseFloat(product.price),
+        image: product.image,
         quantity: 1
       });
-      Alert.alert('Berhasil', 'Produk berhasil ditambahkan ke keranjang');
+      
+      // Navigate directly to cart
       router.push('/carts');
-    } catch (err) {
-      console.error('Add to cart error:', err);
-      Alert.alert('Error', err.message || 'Gagal menambahkan ke keranjang');
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#6f4e37" />
-        <Text>Memuat produk...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={fetchProduct}
+        <TouchableOpacity 
+          style={styles.button}
+          onPress={() => router.back()}
         >
-          <Text style={styles.retryText}>Coba Lagi</Text>
+          <Text style={styles.buttonText}>Kembali</Text>
         </TouchableOpacity>
       </View>
     );
@@ -111,13 +81,13 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={styles.centered}>
         <Text>Produk tidak ditemukan</Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { marginTop: 10 }]}
+        <TouchableOpacity 
+          style={styles.button}
           onPress={() => router.back()}
         >
-          <Text style={styles.retryText}>Kembali</Text>
+          <Text style={styles.buttonText}>Kembali</Text>
         </TouchableOpacity>
       </View>
     );
@@ -125,24 +95,44 @@ export default function ProductDetail() {
 
   return (
     <ScrollView style={styles.container}>
-      <Image
-        source={{ uri: product.image ? `${BASE_URL}/assets/${product.image}` : 'https://via.placeholder.com/300' }}
-        style={styles.image}
-        resizeMode="cover"
-        onError={(error) => console.log('Image load error:', error.nativeEvent.error)}
-      />
-      <View style={styles.details}>
-        <Text style={styles.name}>{product.name || 'Nama Produk'}</Text>
-        <Text style={styles.price}>Rp {product.price ? parseFloat(product.price).toLocaleString('id-ID') : '0'}</Text>
-        <Text style={styles.description}>{product.description || 'Deskripsi tidak tersedia'}</Text>
+      <View style={styles.imageContainer}>
+        {product.image ? (
+          <Image 
+            source={{ 
+              uri: product.image.startsWith('http') 
+                ? product.image 
+                : `${BASE_URL}/assets/${product.image}` 
+            }}
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.placeholderText}>Tidak ada gambar</Text>
+          </View>
+        )}
       </View>
-      <TouchableOpacity
-        style={styles.addToCartButton}
-        onPress={handleAddToCart}
-        disabled={loading}
-      >
-        <Text style={styles.addToCartText}>+ Tambah ke Keranjang</Text>
-      </TouchableOpacity>
+      
+      <View style={styles.detailsContainer}>
+        <Text style={styles.productName}>{product.name}</Text>
+        <Text style={styles.productPrice}>
+          Rp {parseFloat(product.price).toLocaleString('id-ID')}
+        </Text>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Deskripsi</Text>
+          <Text style={styles.productDescription}>
+            {product.description || 'Tidak ada deskripsi tersedia'}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.addToCartButton}
+          onPress={handleAddToCart}
+        >
+          <Text style={styles.addToCartText}>+ Tambah ke Keranjang</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -152,71 +142,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  image: {
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff8f0',
+    padding: 20,
+  },
+  errorText: {
+    color: '#d32f2f',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  button: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: '#6f4e37',
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  imageContainer: {
     width: '100%',
     height: 300,
     backgroundColor: '#f5f5f5',
   },
-  details: {
-    padding: 16,
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
+  imagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0e6d9',
   },
-  price: {
-    fontSize: 20,
-    color: '#6f4e37',
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  description: {
+  placeholderText: {
+    color: '#a39e99',
     fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
+  },
+  detailsContainer: {
+    padding: 20,
+  },
+  productName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2d3436',
+    marginBottom: 8,
+  },
+  productPrice: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#6f4e37',
     marginBottom: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2d3436',
+    marginBottom: 8,
+  },
+  productDescription: {
+    fontSize: 16,
+    color: '#636e72',
+    lineHeight: 24,
   },
   addToCartButton: {
     backgroundColor: '#6f4e37',
     padding: 16,
-    margin: 16,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20,
   },
   addToCartText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: 'red',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#6f4e37',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    minWidth: 150,
-    alignItems: 'center',
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });

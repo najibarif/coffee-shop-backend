@@ -1,34 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { View, FlatList, ActivityIndicator, Text, StyleSheet, RefreshControl } from 'react-native';
 import ProductCard from '../components/ProductCard';
 import { BASE_URL } from '../constants/api';
-import { useRouter } from 'expo-router';
+
+const wait = (timeout) => {
+  return new Promise(resolve => setTimeout(resolve, timeout));
+};
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetch(`${BASE_URL}/products`)
-      .then(res => res.json())
-      .then(data => setProducts(data))
-      .catch(err => {
-        console.error(err);
-      })
-      .finally(() => setLoading(false));
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/products`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setProducts(data.data);
+      } else {
+        console.error('Failed to fetch products:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchProducts().then(() => wait(1000));
   }, []);
 
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" color="#6f4e37" />
-    </View>
-  );
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#6f4e37" />
+      </View>
+    );
+  }
 
   if (!products || products.length === 0) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>Tidak ada produk.</Text>
+        <Text style={styles.emptyText}>Tidak ada produk tersedia</Text>
       </View>
     );
   }
@@ -37,14 +59,19 @@ export default function Products() {
     <View style={styles.container}>
       <FlatList
         data={products}
-        keyExtractor={(item) => item.id?.toString() ?? Math.random().toString()}
-        renderItem={({ item }) => (
-          <ProductCard product={item} />
-        )}
+        renderItem={({ item }) => <ProductCard product={item} />}
+        keyExtractor={item => item.id.toString()}
         numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between' }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#6f4e37']}
+            tintColor="#6f4e37"
+          />
+        }
       />
     </View>
   );
@@ -54,6 +81,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff8f0',
+    padding: 8,
   },
   centered: {
     flex: 1,
@@ -64,6 +92,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#6f4e37',
-    marginTop: 20,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  listContent: {
+    paddingBottom: 16,
   },
 });

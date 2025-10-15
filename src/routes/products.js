@@ -2,39 +2,60 @@ import express from 'express';
 import db from '../config/db.js';
 const router = express.Router();
 
-// Get all products
-router.get('/', (req, res) => {
-  db.query('SELECT * FROM products', (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
+// GET /products - Ambil semua produk
+router.get('/', async (req, res) => {
+  try {
+    const [products] = await db.promise().query('SELECT * FROM products ORDER BY id ASC');
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Gagal mengambil data produk',
+      details: error.message
+    });
+  }
 });
 
-// Get single product by ID
-router.get('/:id', (req, res) => {
-  const productId = req.params.id;
-  
-  // Validate ID is a number
+// GET /products/:id - Ambil produk berdasarkan ID
+router.get('/:id', async (req, res) => {
+  const productId = parseInt(req.params.id, 10);
+
   if (isNaN(productId)) {
-    return res.status(400).json({ error: 'ID produk tidak valid' });
+    return res.status(400).json({
+      success: false,
+      error: 'ID produk tidak valid'
+    });
   }
 
-  const query = 'SELECT * FROM products WHERE id = ?';
-  
-  db.query(query, [productId], (err, result) => {
-    if (err) {
-      console.error('Error fetching product:', err);
-      return res.status(500).json({ error: 'Gagal mengambil data produk' });
+  try {
+    const [products] = await db.promise().query(
+      'SELECT * FROM products WHERE id = ?',
+      [productId]
+    );
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Produk tidak ditemukan'
+      });
     }
 
-    // Check if product exists
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'Produk tidak ditemukan' });
-    }
-
-    // Return the first (and should be only) result
-    res.json(result[0]);
-  });
+    res.json({
+      success: true,
+      data: products[0]
+    });
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Gagal mengambil data produk',
+      details: error.message
+    });
+  }
 });
 
 export default router;

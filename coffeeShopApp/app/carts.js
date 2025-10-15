@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  Alert,
-  FlatList,
-  ScrollView,
-  ActivityIndicator,
+  View, Text, TouchableOpacity, FlatList, Image, Alert, ActivityIndicator, StyleSheet, ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,165 +9,102 @@ import { useCart } from '../context/CartContext';
 
 export default function Cart() {
   const router = useRouter();
-  const [customerName, setCustomerName] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const {
-    cart,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-    getTotalPrice
-  } = useCart();
-
-  // ... (previous imports and component code remain the same)
+  const { cart, updateQuantity, removeFromCart, clearCart, getTotalPrice } = useCart();
 
   const handleCheckout = async () => {
-    if (!customerName.trim()) {
-      Alert.alert('Nama Kosong', 'Silakan masukkan nama Anda');
-      return;
-    }
-
     if (cart.length === 0) {
-      Alert.alert('Keranjang Kosong', 'Tambahkan produk terlebih dahulu');
-      return;
+      return Alert.alert('Keranjang Kosong', 'Tambahkan produk terlebih dahulu');
     }
 
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-
-      // 1. Create or update user
-      console.log('Creating/updating user...');
-      const userResponse = await fetch(`${BASE_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          name: customerName.trim(),
-          email: `${customerName.trim().toLowerCase().replace(/\s+/g, '')}@example.com`
-        })
-      });
-
-      const userData = await userResponse.json();
-      console.log('User response:', userData);
-
-      if (!userResponse.ok || !userData.data?.id) {
-        throw new Error(userData.error || 'User ID tidak valid diterima dari server');
-      }
-
-      const userId = userData.data.id; // <-- pastikan ambil dari data.id
-
-      // 2. Prepare order data
-      const orderData = {
-        user_id: userId,
-        items: cart.map(item => ({
-          product_id: item.id,
-          quantity: item.quantity,
-          price: item.price,
-          name: item.name,
-          image: item.image
-        })),
-        total_price: getTotalPrice(),
-        status: 'pending'
+      const payload = {
+        total_price: (getTotalPrice() * 1.1).toString() // Include 10% tax and convert to string
       };
 
-      console.log('Sending order data:', orderData);
-
-      // 3. Create order
-      const orderResponse = await fetch(`${BASE_URL}/orders`, {
+      const orderRes = await fetch(`${BASE_URL}/orders`, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(orderData)
+        body: JSON.stringify(payload),
       });
 
-      const orderResult = await orderResponse.json();
-      console.log('Order response:', orderResult);
-
-      if (!orderResponse.ok) {
-        throw new Error(orderResult.error || 'Gagal membuat pesanan');
+      const resData = await orderRes.json();
+      
+      if (!orderRes.ok) {
+        throw new Error(resData.error || 'Gagal membuat pesanan');
       }
 
-      // 4. Clear cart
       clearCart();
+      Alert.alert('Pesanan Berhasil', 'Terima kasih atas pesanannya!', [
+        { text: 'Lihat Pesanan', onPress: () => router.push('/orders') }
+      ]);
 
-      // 5. Navigate to orders page
-      router.push({
-        pathname: '/orders',
-        params: { refresh: Date.now() }
-      });
-
-    } catch (error) {
-      console.error('Checkout error:', error);
-      Alert.alert('Error', error.message || 'Terjadi kesalahan saat memproses pesanan');
+    } catch (err) {
+      console.error('Checkout error:', err);
+      Alert.alert('Terjadi Kesalahan', err.message || 'Silakan coba lagi');
     } finally {
       setSubmitting(false);
     }
   };
 
-
-  // ... (rest of the component code remains the same)
-
-  const renderCartItem = ({ item }) => (
+  const renderItem = ({ item }) => (
     <View style={styles.cartItem}>
-      <Image
-        source={{ uri: item.image ? `${BASE_URL}/assets/${item.image}` : 'https://via.placeholder.com/100' }}
-        style={styles.itemImage}
-      />
+      <View style={styles.itemImageContainer}>
+        <Image
+          source={{ uri: item.image ? `${BASE_URL}/assets/${item.image}` : 'https://via.placeholder.com/80' }}
+          style={styles.itemImage}
+          resizeMode="cover"
+        />
+      </View>
       <View style={styles.itemDetails}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>
-          Rp {parseFloat(item.price).toLocaleString('id-ID')}
-        </Text>
+        <Text style={styles.itemName} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+        <Text style={styles.itemPrice}>Rp {Number(item.price).toLocaleString('id-ID')}</Text>
         <View style={styles.quantityContainer}>
-          <TouchableOpacity
-            style={styles.quantityButton}
-            onPress={() => updateQuantity(item.id, item.quantity - 1)}
+          <TouchableOpacity 
+            onPress={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} 
+            style={[styles.quantityButton, item.quantity <= 1 && styles.disabledButton]}
+            disabled={item.quantity <= 1}
           >
-            <Ionicons name="remove" size={16} color="#6F4E37" />
+            <Ionicons name="remove" size={16} color={item.quantity <= 1 ? "#CCCCCC" : "#6F4E37"} />
           </TouchableOpacity>
-          <TextInput
-            style={styles.quantityInput}
-            value={item.quantity.toString()}
-            onChangeText={text => {
-              const num = parseInt(text) || 1;
-              updateQuantity(item.id, num);
-            }}
-            keyboardType="numeric"
-          />
-          <TouchableOpacity
+          <Text style={styles.quantityText}>{item.quantity}</Text>
+          <TouchableOpacity 
+            onPress={() => updateQuantity(item.id, item.quantity + 1)} 
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.id, item.quantity + 1)}
           >
             <Ionicons name="add" size={16} color="#6F4E37" />
           </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity
-        style={styles.removeButton}
-        onPress={() => removeFromCart(item.id)}
-      >
-        <Ionicons name="trash-outline" size={20} color="#F44336" />
-      </TouchableOpacity>
+      <View style={styles.itemActions}>
+        <Text style={styles.itemTotal}>
+          Rp {(item.quantity * Number(item.price)).toLocaleString('id-ID')}
+        </Text>
+        <TouchableOpacity 
+          onPress={() => removeFromCart(item.id)}
+          style={styles.deleteButton}
+        >
+          <Ionicons name="trash-outline" size={20} color="#F44336" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   if (cart.length === 0) {
     return (
       <View style={styles.emptyCartContainer}>
-        <Ionicons name="cart-outline" size={80} color="#E0E0E0" />
-        <Text style={styles.emptyCartText}>Keranjang Anda Kosong</Text>
-        <Text style={styles.emptyCartSubtext}>
-          Ayo tambahkan beberapa produk favorit Anda
-        </Text>
-        <TouchableOpacity
-          style={styles.continueShoppingButton}
-          onPress={() => router.push('/products')}
+        <Ionicons name="cart-outline" size={100} color="#E0E0E0" />
+        <Text style={styles.emptyText}>Keranjang Kamu Kosong</Text>
+        <Text style={styles.emptySubtext}>Ayo tambahkan beberapa produk favoritmu!</Text>
+        <TouchableOpacity 
+          onPress={() => router.push('/products')} 
+          style={styles.shopButton}
         >
-          <Text style={styles.continueShoppingText}>Belanja Sekarang</Text>
+          <Text style={styles.shopButtonText}>Jelajahi Produk</Text>
         </TouchableOpacity>
       </View>
     );
@@ -185,65 +113,51 @@ export default function Cart() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <View style={styles.customerInfo}>
-          <Text style={styles.sectionTitle}>Data Pemesan</Text>
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Nama Lengkap</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Masukkan nama Anda"
-              value={customerName}
-              onChangeText={setCustomerName}
-              placeholderTextColor="#999"
-            />
-          </View>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Keranjang Belanja</Text>
+          <Text style={styles.itemCount}>{cart.length} {cart.length > 1 ? 'items' : 'item'}</Text>
         </View>
 
-        <View style={styles.cartList}>
-          <Text style={styles.sectionTitle}>Pesanan Anda</Text>
-          <FlatList
-            data={cart}
-            renderItem={renderCartItem}
-            keyExtractor={item => item.id.toString()}
-            scrollEnabled={false}
-          />
-        </View>
+        <FlatList
+          data={cart}
+          renderItem={renderItem}
+          keyExtractor={item => item.id.toString()}
+          scrollEnabled={false}
+          contentContainerStyle={styles.cartList}
+        />
 
         <View style={styles.summaryContainer}>
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>
-              Rp {getTotalPrice().toLocaleString('id-ID')}
-            </Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Harga</Text>
+            <Text style={styles.summaryValue}>Rp {getTotalPrice().toLocaleString('id-ID')}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Pajak (10%)</Text>
+            <Text style={styles.summaryValue}>Rp {(getTotalPrice() * 0.1).toLocaleString('id-ID')}</Text>
+          </View>
+          <View style={[styles.summaryRow, { marginTop: 8 }]}>
+            <Text style={styles.totalLabel}>Total Bayar</Text>
+            <Text style={styles.totalValue}>Rp {(getTotalPrice() * 1.1).toLocaleString('id-ID')}</Text>
           </View>
         </View>
       </ScrollView>
 
-      <View style={styles.checkoutContainer}>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.continueShoppingButton]}
-            onPress={() => router.push('/products')}
-          >
-            <Text style={[styles.actionButtonText, { color: '#6F4E37' }]}>Lanjut Belanja</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.checkoutButton,
-              submitting && styles.disabledButton
-            ]}
-            onPress={handleCheckout}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.actionButtonText}>Bayar Sekarang</Text>
-            )}
-          </TouchableOpacity>
+      <View style={styles.footer}>
+        <View style={styles.priceContainer}>
+          <Text style={styles.totalText}>Total</Text>
+          <Text style={styles.totalAmount}>Rp {(getTotalPrice() * 1.1).toLocaleString('id-ID')}</Text>
         </View>
+        <TouchableOpacity
+          onPress={handleCheckout}
+          style={[styles.checkoutButton, submitting && styles.checkoutButtonDisabled]}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.checkoutButtonText}>Checkout Sekarang</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -252,201 +166,206 @@ export default function Cart() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F8F9FA',
   },
   scrollView: {
     flex: 1,
-  },
-  customerInfo: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
-    margin: 16,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  itemCount: {
+    color: '#6C757D',
+    fontSize: 14,
   },
   cartList: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  inputContainer: {
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    paddingBottom: 20,
   },
   cartItem: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     marginBottom: 12,
+    flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+  },
+  itemImageContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F8F9FA',
   },
   itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#F5F5F5',
+    width: '100%',
+    height: '100%',
   },
   itemDetails: {
     flex: 1,
-    justifyContent: 'space-between',
+    marginLeft: 12,
+    justifyContent: 'center',
   },
   itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#2D3436',
     marginBottom: 4,
   },
   itemPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
     color: '#6F4E37',
+    fontWeight: '600',
     marginBottom: 8,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 4,
+    alignSelf: 'flex-start',
   },
   quantityButton: {
     width: 28,
     height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
   },
-  quantityInput: {
-    width: 40,
-    height: 36,
+  disabledButton: {
+    opacity: 0.5,
+  },
+  quantityText: {
+    width: 30,
     textAlign: 'center',
-    marginHorizontal: 4,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-  },
-  removeButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  emptyCartContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyCartText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyCartSubtext: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  continueShoppingButton: {
-    backgroundColor: '#6F4E37',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-  },
-  continueShoppingText: {
-    color: '#FFF',
     fontWeight: '600',
-    fontSize: 16,
+    color: '#2D3436',
+  },
+  itemActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: '100%',
+  },
+  itemTotal: {
+    fontWeight: 'bold',
+    color: '#2D3436',
+    fontSize: 14,
+  },
+  deleteButton: {
+    padding: 4,
   },
   summaryContainer: {
-    backgroundColor: '#FFF',
-    padding: 16,
-    margin: 16,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 16,
+    marginTop: 8,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
-    paddingTop: 12,
-    marginTop: 4,
+  summaryLabel: {
+    color: '#6C757D',
+    fontSize: 14,
+  },
+  summaryValue: {
+    color: '#2D3436',
+    fontWeight: '500',
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#2D3436',
   },
   totalValue: {
-    fontSize: 18,
     fontWeight: 'bold',
+    fontSize: 18,
     color: '#6F4E37',
   },
-  checkoutContainer: {
-    padding: 16,
-    backgroundColor: '#FFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
-  },
-  buttonRow: {
+  footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  actionButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
   },
-  continueShoppingButton: {
-    backgroundColor: '#F0F0F0',
-    marginRight: 8,
+  priceContainer: {
+    flex: 1,
+  },
+  totalText: {
+    fontSize: 14,
+    color: '#6C757D',
+    marginBottom: 2,
+  },
+  totalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3436',
   },
   checkoutButton: {
     backgroundColor: '#6F4E37',
-    marginLeft: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginLeft: 16,
+    minWidth: 160,
   },
-  actionButtonText: {
+  checkoutButtonDisabled: {
+    backgroundColor: '#A68A72',
+  },
+  checkoutButtonText: {
+    color: '#FFFFFF',
     fontWeight: '600',
-    color: '#FFF',
+    textAlign: 'center',
+  },
+  emptyCartContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#F8F9FA',
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6C757D',
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  shopButton: {
+    backgroundColor: '#6F4E37',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  shopButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

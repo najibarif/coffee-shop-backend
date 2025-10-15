@@ -21,10 +21,8 @@ CREATE TABLE IF NOT EXISTS products (
 -- 3️⃣ Membuat tabel orders
 CREATE TABLE IF NOT EXISTS orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
   total_price DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4️⃣ Mengisi tabel users
@@ -43,8 +41,8 @@ INSERT INTO products (name, price, description, image) VALUES
 ('Americano', 22000.00, 'Espresso yang dicampur dengan air panas.', 'americano.png');
 
 -- 6️⃣ Mengisi tabel orders
-INSERT INTO orders (user_id, total_price) VALUES
-(1, 55000.00),
-(2, 30000.00),
-(3, 67000.00),
-(4, 22000.00);
+INSERT INTO orders (total_price) VALUES
+(55000.00),
+(30000.00),
+(67000.00),
+(22000.00);

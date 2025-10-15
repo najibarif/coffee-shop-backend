@@ -39,10 +39,7 @@ export default function Products() {
         data={products}
         keyExtractor={(item) => item.id?.toString() ?? Math.random().toString()}
         renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            onPress={() => router.push(`/products/ProductDetail?id=${item.id}`)}
-          />
+          <ProductCard product={item} />
         )}
         numColumns={2}
         columnWrapperStyle={{ justifyContent: 'space-between' }}

@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, Text, Image, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useEffect, useState } from 'react';
 import { BASE_URL } from '../../constants/api';
+import { useCart } from '../../context/CartContext';
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams();
@@ -9,10 +10,12 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const { addToCart } = useCart();
 
   const fetchProduct = async () => {
     if (!id) {
-      setError('Product ID is missing');
+      console.error('Error: Product ID is missing');
+      setError('ID produk tidak valid');
       setLoading(false);
       return;
     }
@@ -20,36 +23,42 @@ export default function ProductDetail() {
     try {
       setLoading(true);
       const url = `${BASE_URL}/products/${id}`;
-      console.log('Fetching from:', url);
-      
+      console.log('Fetching from URL:', url);
+
       const response = await fetch(url, {
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-        }
+        },
       });
-      
+
       console.log('Response status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
+        console.error('Server error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Gagal memuat data produk (${response.status})`);
       }
-      
+
       const data = await response.json();
       console.log('Received data:', data);
-      
-      if (!data || Object.keys(data).length === 0) {
-        throw new Error('Received empty response from server');
+
+      if (!data) {
+        throw new Error('Tidak ada data yang diterima dari server');
       }
-      
+
       setProduct(data);
       setError(null);
     } catch (err) {
-      console.error('Error details:', {
+      console.error('Error in fetchProduct:', {
         message: err.message,
         stack: err.stack,
+        name: err.name
       });
       setError(`Gagal memuat data produk: ${err.message}`);
     } finally {
@@ -61,32 +70,19 @@ export default function ProductDetail() {
     fetchProduct();
   }, [id]);
 
-  const addToCart = async () => {
+  const handleAddToCart = () => {
     if (!product) return;
-    
-    try {
-      const response = await fetch(`${BASE_URL}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          product_id: product.id,
-          quantity: 1,
-          total_price: parseFloat(product.price)
-        }),
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Gagal menambahkan ke keranjang');
-      }
-      
-      Alert.alert('Berhasil', 'Produk ditambahkan ke keranjang');
-      router.push('/cart');
+    try {
+      addToCart({
+        ...product,
+        quantity: 1
+      });
+      Alert.alert('Berhasil', 'Produk berhasil ditambahkan ke keranjang');
+      router.push('/carts');
     } catch (err) {
       console.error('Add to cart error:', err);
-      Alert.alert('Error', err.message || 'Terjadi kesalahan');
+      Alert.alert('Error', err.message || 'Gagal menambahkan ke keranjang');
     }
   };
 
@@ -103,17 +99,11 @@ export default function ProductDetail() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.retryButton}
           onPress={fetchProduct}
         >
           <Text style={styles.retryText}>Coba Lagi</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.retryButton, {marginTop: 10, backgroundColor: '#4CAF50'}]}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryText}>Kembali</Text>
         </TouchableOpacity>
       </View>
     );
@@ -123,8 +113,8 @@ export default function ProductDetail() {
     return (
       <View style={styles.errorContainer}>
         <Text>Produk tidak ditemukan</Text>
-        <TouchableOpacity 
-          style={[styles.retryButton, {marginTop: 10}]}
+        <TouchableOpacity
+          style={[styles.retryButton, { marginTop: 10 }]}
           onPress={() => router.back()}
         >
           <Text style={styles.retryText}>Kembali</Text>
@@ -146,9 +136,9 @@ export default function ProductDetail() {
         <Text style={styles.price}>Rp {product.price ? parseFloat(product.price).toLocaleString('id-ID') : '0'}</Text>
         <Text style={styles.description}>{product.description || 'Deskripsi tidak tersedia'}</Text>
       </View>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addToCartButton}
-        onPress={addToCart}
+        onPress={handleAddToCart}
         disabled={loading}
       >
         <Text style={styles.addToCartText}>+ Tambah ke Keranjang</Text>

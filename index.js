@@ -7,7 +7,6 @@ dotenv.config();
 
 import db from "./src/config/db.js";
 import productRoutes from "./src/routes/products.js";
-import userRoutes from "./src/routes/users.js";
 import orderRoutes from "./src/routes/orders.js";
 
 const app = express();
@@ -18,7 +17,6 @@ app.use(express.json());
 app.use('/api/assets', express.static(path.join(process.cwd(), 'src', 'assets')));
 
 app.use("/api/products", productRoutes);
-app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
 
 app.get("/", (req, res) => res.send("☕ Coffee Shop API is running..."));
